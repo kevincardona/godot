@@ -35,17 +35,23 @@
 #include "editor/editor_scale.h"
 
 Rect2i EditorQuickOpen::prev_rect = Rect2i();
-bool EditorQuickOpen::was_showed = false;
+bool EditorQuickOpen::was_shown = false;
 
 void EditorQuickOpen::popup_dialog(const String &p_base, bool p_enable_multi, bool p_dont_clear) {
 	base_type = p_base;
 	allow_multi_select = p_enable_multi;
 	search_options->set_select_mode(allow_multi_select ? Tree::SELECT_MULTI : Tree::SELECT_SINGLE);
 
-	if (was_showed) {
-		popup(prev_rect);
+	// Get editor position and match it
+	Vector2 window_position = DisplayServer::get_singleton()->window_get_position();
+	Size2 window_size = DisplayServer::get_singleton()->window_get_size();
+	Size2 popup_size = Size2(600, 440) * EDSCALE;
+	Vector2 centered_position = window_position + (window_size - popup_size) * 0.5;
+
+	if (was_shown) {
+		popup(Rect2(centered_position, popup_size));
 	} else {
-		popup_centered_clamped(Size2(600, 440) * EDSCALE, 0.8f);
+		popup_centered_clamped(popup_size, 0.8f);
 	}
 
 	EditorFileSystemDirectory *efsd = EditorFileSystem::get_singleton()->get_filesystem();
@@ -127,11 +133,13 @@ void EditorQuickOpen::_update_search() {
 		to_select->set_as_cursor(0);
 		search_options->scroll_to_item(to_select);
 
-		get_ok_button()->set_disabled(false);
+		confirm_disabled = false;
 	} else {
 		search_options->deselect_all();
+		TreeItem *ti = search_options->create_item(root);
+		ti->set_text(0, vformat(TTR("No results for \"%s\"."), search_text));
 
-		get_ok_button()->set_disabled(true);
+		confirm_disabled = true;
 	}
 }
 
@@ -155,16 +163,12 @@ float EditorQuickOpen::_score_path(const String &p_search, const String &p_path)
 }
 
 void EditorQuickOpen::_confirmed() {
-	if (!search_options->get_selected()) {
+	if (!search_options->get_selected() || confirm_disabled) {
 		return;
 	}
 	_cleanup();
 	hide();
 	emit_signal(SNAME("quick_open"));
-}
-
-void EditorQuickOpen::cancel_pressed() {
-	_cleanup();
 }
 
 void EditorQuickOpen::_cleanup() {
@@ -238,20 +242,14 @@ String EditorQuickOpen::get_base_type() const {
 void EditorQuickOpen::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE: {
-			connect("confirmed", callable_mp(this, &EditorQuickOpen::_confirmed));
-
 			search_box->set_clear_button_enabled(true);
 		} break;
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			if (!is_visible()) {
 				prev_rect = Rect2i(get_position(), get_size());
-				was_showed = true;
+				was_shown = true;
 			}
-		} break;
-
-		case NOTIFICATION_EXIT_TREE: {
-			disconnect("confirmed", callable_mp(this, &EditorQuickOpen::_confirmed));
 		} break;
 	}
 }
@@ -264,16 +262,29 @@ void EditorQuickOpen::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("quick_open"));
 }
 
+void EditorQuickOpen::_input_from_window(const Ref<InputEvent> &p_event) {
+	if (p_event->is_action_pressed(SNAME("ui_accept"), false, true)) {
+		_confirmed();
+	}
+}
+
+void EditorQuickOpen::set_title(const String &title_string) {
+	title->set_text(title_string);
+}
+
 EditorQuickOpen::EditorQuickOpen() {
 	VBoxContainer *vbc = memnew(VBoxContainer);
 	vbc->connect("theme_changed", callable_mp(this, &EditorQuickOpen::_theme_changed));
 	add_child(vbc);
 
+	title = memnew(Label);
+	title->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER);
+	vbc->add_child(title);
+
 	search_box = memnew(LineEdit);
 	search_box->connect("text_changed", callable_mp(this, &EditorQuickOpen::_text_changed));
 	search_box->connect("gui_input", callable_mp(this, &EditorQuickOpen::_sbox_input));
 	vbc->add_margin_child(TTR("Search:"), search_box);
-	register_text_enter(search_box);
 
 	search_options = memnew(Tree);
 	search_options->connect("item_activated", callable_mp(this, &EditorQuickOpen::_confirmed));
@@ -283,6 +294,6 @@ EditorQuickOpen::EditorQuickOpen() {
 	search_options->add_theme_constant_override("draw_guides", 1);
 	vbc->add_margin_child(TTR("Matches:"), search_options, true);
 
-	set_ok_button_text(TTR("Open"));
-	set_hide_on_ok(false);
+	connect("window_input", callable_mp(this, &EditorQuickOpen::_input_from_window));
+	call_deferred("connect", "popup_hide", callable_mp(this, &EditorQuickOpen::_cleanup));
 }

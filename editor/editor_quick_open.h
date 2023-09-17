@@ -33,19 +33,23 @@
 
 #include "core/templates/oa_hash_map.h"
 #include "editor/editor_file_system.h"
-#include "scene/gui/dialogs.h"
+#include "scene/gui/label.h"
+#include "scene/gui/box_container.h"
+#include "scene/gui/popup.h"
 #include "scene/gui/tree.h"
 
-class EditorQuickOpen : public ConfirmationDialog {
-	GDCLASS(EditorQuickOpen, ConfirmationDialog);
+class EditorQuickOpen : public PopupPanel {
+	GDCLASS(EditorQuickOpen, PopupPanel);
 
 	static Rect2i prev_rect;
-	static bool was_showed;
+	static bool was_shown;
 
+	Label *title = nullptr;
 	LineEdit *search_box = nullptr;
 	Tree *search_options = nullptr;
 	String base_type;
 	bool allow_multi_select = false;
+	bool confirm_disabled = false;
 
 	Vector<String> files;
 	OAHashMap<String, Ref<Texture2D>> icons;
@@ -66,11 +70,11 @@ class EditorQuickOpen : public ConfirmationDialog {
 	float _score_path(const String &p_search, const String &p_path);
 
 	void _confirmed();
-	virtual void cancel_pressed() override;
 	void _cleanup();
 
 	void _sbox_input(const Ref<InputEvent> &p_ie);
 	void _text_changed(const String &p_newtext);
+	void _input_from_window(const Ref<InputEvent> &p_event);
 
 	void _theme_changed();
 
@@ -85,6 +89,7 @@ public:
 	Vector<String> get_selected_files() const;
 
 	void popup_dialog(const String &p_base, bool p_enable_multi = false, bool p_dontclear = false);
+	void set_title(const String &title_string);
 	EditorQuickOpen();
 };
 

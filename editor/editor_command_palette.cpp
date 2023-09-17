@@ -40,7 +40,7 @@
 EditorCommandPalette *EditorCommandPalette::singleton = nullptr;
 
 static Rect2i prev_rect = Rect2i();
-static bool was_showed = false;
+static bool was_shown = false;
 
 float EditorCommandPalette::_score_path(const String &p_search, const String &p_path) {
 	float score = 0.9f + .1f * (p_search.length() / (float)p_path.length());
@@ -160,7 +160,7 @@ void EditorCommandPalette::_notification(int p_what) {
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			if (!is_visible()) {
 				prev_rect = Rect2i(get_position(), get_size());
-				was_showed = true;
+				was_shown = true;
 			}
 		} break;
 	}
@@ -192,7 +192,7 @@ void EditorCommandPalette::_confirmed() {
 }
 
 void EditorCommandPalette::open_popup() {
-	if (was_showed) {
+	if (was_shown) {
 		popup(prev_rect);
 	} else {
 		popup_centered_clamped(Size2(600, 440) * EDSCALE, 0.8f);
@@ -323,7 +323,7 @@ EditorCommandPalette::EditorCommandPalette() {
 	VBoxContainer *vbc = memnew(VBoxContainer);
 	vbc->connect("theme_changed", callable_mp(this, &EditorCommandPalette::_theme_changed));
 	add_child(vbc);
-
+	
 	command_search_box = memnew(LineEdit);
 	command_search_box->set_placeholder(TTR("Filter Commands"));
 	command_search_box->connect("gui_input", callable_mp(this, &EditorCommandPalette::_sbox_input));
