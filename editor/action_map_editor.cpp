@@ -85,7 +85,7 @@ String ActionMapEditor::_check_new_action_name(const String &p_name) {
 }
 
 void ActionMapEditor::_add_edit_text_changed(const String &p_name) {
-	String error = _check_new_action_name(p_name);
+	String error = _check_new_action_name(p_name.strip_edges());
 	add_button->set_tooltip_text(error);
 	add_button->set_disabled(!error.is_empty());
 }
@@ -100,14 +100,15 @@ bool ActionMapEditor::_has_action(const String &p_name) const {
 }
 
 void ActionMapEditor::_add_action(const String &p_name) {
-	String error = _check_new_action_name(p_name);
+	String new_name = p_name.strip_edges();
+	String error = _check_new_action_name(new_name);
 	if (!error.is_empty()) {
 		show_message(error);
 		return;
 	}
 
 	add_edit->clear();
-	emit_signal(SNAME("action_added"), p_name);
+	emit_signal(SNAME("action_added"), new_name);
 }
 
 void ActionMapEditor::_action_edited() {
@@ -123,7 +124,12 @@ void ActionMapEditor::_action_edited() {
 
 		if (new_name == old_name) {
 			return;
+		} else if (new_name.strip_edges() == old_name) {
+			ti->set_text(0, old_name);
+			return;
 		}
+
+		new_name = new_name.strip_edges();
 
 		if (new_name.is_empty() || !_is_action_name_valid(new_name)) {
 			ti->set_text(0, old_name);
